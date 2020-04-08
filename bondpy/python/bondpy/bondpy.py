@@ -25,7 +25,7 @@
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
 
-## \author Stuart Glaser
+# \author Stuart Glaser
 
 import threading
 import time
@@ -34,7 +34,6 @@ import uuid
 import rospy
 
 from . import BondSM_sm
-
 from bond.msg import Constants, Status
 
 
@@ -50,7 +49,7 @@ def as_float_duration(d):
     return d
 
 
-## Internal use only
+# Internal use only
 class Timeout:
     def __init__(self, duration, on_timeout=None):
         self.duration = duration
@@ -78,13 +77,13 @@ class Timeout:
             self.on_timeout()
 
 
-## \brief Forms a bond to monitor another process.
+# \brief Forms a bond to monitor another process.
 #
 # The Bond class implements a bond, allowing you to monitor another
 # process and be notified when it dies.  In turn, it will be notified
 # when you die.
 class Bond(object):
-    ## \brief Constructs a bond, but does not connect.
+    # \brief Constructs a bond, but does not connect.
     #
     # \param topic The topic used to exchange the bond status messages.
     # \param id The ID of the bond, which should match the ID used on
@@ -129,7 +128,8 @@ class Bond(object):
     def set_connect_timeout(self, dur):
         assert not self.__started
         self.__connect_timeout = dur
-        self.connect_timer = Timeout(as_ros_duration(dur), self._on_connect_timeout)
+        self.connect_timer = Timeout(
+            as_ros_duration(dur), self._on_connect_timeout)
     connect_timeout = property(get_connect_timeout, set_connect_timeout)
 
     def get_heartbeat_timeout(self):
@@ -138,7 +138,8 @@ class Bond(object):
     def set_heartbeat_timeout(self, dur):
         assert not self.__started
         self.__heartbeat_timeout = dur
-        self.heartbeat_timer = Timeout(as_ros_duration(dur), self._on_heartbeat_timeout)
+        self.heartbeat_timer = Timeout(
+            as_ros_duration(dur), self._on_heartbeat_timeout)
     heartbeat_timeout = property(get_heartbeat_timeout, set_heartbeat_timeout)
 
     def get_disconnect_timeout(self):
@@ -147,8 +148,10 @@ class Bond(object):
     def set_disconnect_timeout(self, dur):
         assert not self.__started
         self.__disconnect_timeout = dur
-        self.disconnect_timer = Timeout(as_ros_duration(dur), self._on_disconnect_timeout)
-    disconnect_timeout = property(get_disconnect_timeout, set_disconnect_timeout)
+        self.disconnect_timer = Timeout(
+            as_ros_duration(dur), self._on_disconnect_timeout)
+    disconnect_timeout = property(
+        get_disconnect_timeout, set_disconnect_timeout)
 
     def get_heartbeat_period(self):
         return self.__heartbeat_period
@@ -158,11 +161,12 @@ class Bond(object):
         self.__heartbeat_period = as_float_duration(per)
     heartbeat_period = property(get_heartbeat_period, set_heartbeat_period)
 
-    ## \brief Starts the bond and connects to the sister process.
+    # \brief Starts the bond and connects to the sister process.
     def start(self):
         with self.lock:
             self.connect_timer.reset()
-            self.sub = rospy.Subscriber(self.topic, Status, self._on_bond_status)
+            self.sub = rospy.Subscriber(
+                self.topic, Status, self._on_bond_status)
 
             self.thread = threading.Thread(target=self._publishing_thread)
             self.thread.daemon = True
@@ -263,22 +267,22 @@ class Bond(object):
         for c in callbacks:
             c()
 
-    ## \brief INTERNAL
+    # \brief INTERNAL
     def Connected(self):
         self.connect_timer.cancel()
         self.condition.notify_all()
         if self.on_formed:
             self.pending_callbacks.append(self.on_formed)
 
-    ## \brief INTERNAL
+    # \brief INTERNAL
     def Heartbeat(self):
         self.heartbeat_timer.reset()
 
-    ## \brief INTERNAL
+    # \brief INTERNAL
     def SisterDied(self):
         self.sister_died_first = True
 
-    ## \brief INTERNAL
+    # \brief INTERNAL
     def Death(self):
         self.condition.notify_all()
         self.heartbeat_timer.cancel()
@@ -286,22 +290,22 @@ class Bond(object):
         if self.on_broken:
             self.pending_callbacks.append(self.on_broken)
 
-    ## \brief INTERNAL
+    # \brief INTERNAL
     def StartDying(self):
         self.heartbeat_timer.cancel()
         self.disconnect_timer.reset()
 
-    ## \brief Sets the formed callback
+    # \brief Sets the formed callback
     def set_formed_callback(self, on_formed):
         with self.lock:
             self.on_formed = on_formed
 
-    ## \brief Sets the broken callback
+    # \brief Sets the broken callback
     def set_broken_callback(self, on_broken):
         with self.lock:
             self.on_broken = on_broken
 
-    ## \brief Blocks until the bond is formed for at most 'duration'.
+    # \brief Blocks until the bond is formed for at most 'duration'.
     #
     # \param timeout Maximum duration to wait.  If None then this call will not timeout.
     # \return true iff the bond has been formed.
@@ -319,11 +323,12 @@ class Bond(object):
                     break
                 wait_duration = 0.1
                 if self.deadline:
-                    wait_duration = min(wait_duration, self.deadline.left().to_sec())
+                    wait_duration = min(
+                        wait_duration, self.deadline.left().to_sec())
                 self.condition.wait(wait_duration)
             return self.sm.getState().getName() != 'SM.WaitingForSister'
 
-    ## \brief Blocks until the bond is broken for at most 'duration'.
+    # \brief Blocks until the bond is broken for at most 'duration'.
     #
     # \param timeout Maximum duration to wait.  If None then this call will not timeout.
     # \return true iff the bond has been broken, even if it has never been formed.
@@ -341,17 +346,18 @@ class Bond(object):
                     break
                 wait_duration = 0.1
                 if self.deadline:
-                    wait_duration = min(wait_duration, self.deadline.left().to_sec())
+                    wait_duration = min(
+                        wait_duration, self.deadline.left().to_sec())
                 self.condition.wait(wait_duration)
             return self.sm.getState().getName() == 'SM.Dead'
 
-    ## \brief Indicates if the bond is broken
+    # \brief Indicates if the bond is broken
     # \return true iff the bond has been broken.
     def is_broken(self):
         with self.lock:
             return self.sm.getState().getName() == 'SM.Dead'
 
-    ## \brief Breaks the bond, notifying the other process.
+    # \brief Breaks the bond, notifying the other process.
     def break_bond(self):
         with self.lock:
             self.sm.Die()
